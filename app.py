@@ -1,48 +1,72 @@
+from flask import Flask, render_template
 import cv2
 from pyzbar.pyzbar import decode
-from flask import Flask, jsonify
+import openpyxl
+from openpyxl import Workbook
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account
 
-app = Flask(__name__)
 
-# Set up credentials from the downloaded JSON key file
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("path/to/your/keyfile.json", scope)
-client = gspread.authorize(creds)
-
-# Specify the spreadsheet and sheet
-spreadsheet_url = "https://docs.google.com/spreadsheets/d/1Zy3x_d4Lrk2v1njIG9LL5-cp3i_a_0PzCVT7Q6NpQls/edit"
-spreadsheet = client.open_by_url(spreadsheet_url)
-sheet = spreadsheet.get_worksheet(0)  # Assuming data is in the first sheet
-
-@app.route('/scan_qr_code', methods=['GET'])
-def scan_qr_code():
+def scan_qr_code_camera():
     cap = cv2.VideoCapture(0)
 
     while True:
         ret, frame = cap.read()
+
+        if not ret:
+            print("Error: Could not read from the camera.")
+            break
+
         decoded_objects = decode(frame)
 
         for obj in decoded_objects:
             data = obj.data.decode("utf-8")
             cap.release()
-            store_data_in_spreadsheet(data)
-            return jsonify({"data": data})
+            cv2.destroyAllWindows()
+            return data
 
         cv2.imshow("QR Code Scanner", frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
     cap.release()
-    return jsonify({"data": None})
+    cv2.destroyAllWindows()
+    return None  # No QR code detected
 
-def store_data_in_spreadsheet(data):
-    # Extract data from the QR code
-    name, phone = data.split("\n")[0].split(":")[1], data.split("\n")[1].split(":")[1]
 
-    # Append data to the Google Sheets spreadsheet
+def save_to_google_sheet(data, spreadsheet_key='1Zy3x_d4Lrk2v1njIG9LL5-cp3i_a_0PzCVT7Q6NpQls', sheet_name='Sheet1'):
+
+    creds = service_account.Credentials.from_service_account_file(
+        '/psf-data-411811-a451ae390965.json',
+        scopes=['https://www.googleapis.com/auth/spreadsheets'],
+    )
+
+    gc = gspread.authorize(creds)
+
+    sheet = gc.open_by_key(spreadsheet_key).worksheet(sheet_name)
+
+    name, phone = data.split("\n")[0].split(
+        ":")[1], data.split("\n")[1].split(":")[1]
+
     sheet.append_row([name, phone])
 
-# if __name__ == "__main__":
-#     app.run(debug=True)
+    print(f"Data saved to Google Sheet")
+
+
+app = Flask(__name__, template_folder='template')
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/scan_and_save')
+def scan_and_save():
+    data = scan_qr_code_camera()
+    save_to_google_sheet(data)
+    return f"QR Code scanned successfully! Data saved to Google Sheet."
+
+
+# if __name__ == '__main__':
+    # app.run(debug=True)
