@@ -1,0 +1,6 @@
+
+Werkzeug
+Flask
+qrcode[pil]==7.3
+Gunicorn
+
