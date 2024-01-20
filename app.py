@@ -38,9 +38,9 @@ def save_to_excel(data, excel_filename="data.xlsx"):
     wb.save(excel_filename)
     print(f"Data saved to {excel_filename}")
 
-if __name__ == "__main__":
-    print("Scan QR code with the camera.")
-    data = scan_qr_code_camera()
-    print("QR Code scanned successfully!")
+# if __name__ == "__main__":
+#     print("Scan QR code with the camera.")
+#     data = scan_qr_code_camera()
+#     print("QR Code scanned successfully!")
     
     save_to_excel(data)
